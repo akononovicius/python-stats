@@ -49,3 +49,15 @@ def SaveLogPdf(file,data,start=None,stop=None,outPoints=100,
     np.savetxt(file,np.log10(pdf),fmt=fmt)
     if(returnData):
         return pdf
+
+#convert PDF to CDF
+def PDF2CDF(pdf):
+    delta=np.diff(pdf[:,0])
+    tCdf1=np.cumsum(pdf[1:,1]*delta)
+    tCdf2=np.cumsum(pdf[:-1,1]*delta)
+
+    cdf=0.5*tCdf1+0.5*tCdf2
+    cdf=cdf/cdf[-1]
+    cdf=np.concatenate(([0],cdf))
+    
+    return np.transpose([pdf[:,0],cdf])
