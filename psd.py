@@ -6,6 +6,21 @@ import numpy as np
 import scipy.signal as sp
 from stats.averageOverLogLog import AverageOverLogLog
 
+#make PSD with frequencies equi-sampled on log-scale
+#data does not need to be equi-sampled on temporal scale, just submit
+#two data arrays - times for observation time, vals for observation values
+#lfMin and lfMax define log-frequency bounds to be analyzed
+# returns PSD in lin-lin scale
+def MakeLogUPsd(times,vals,lfMin=None,lfMax=None,outPoints=100):
+    if lfMax is None:
+        lfMax = np.log10(0.5/np.mean(np.diff(times)))
+    if lfMin is None:
+        lfMin = -np.log10(times[-1]-times[0])
+    freqs = np.logspace(lfMin,lfMax,outPoints)
+    norm = len(times)/4
+    psd=sp.lombscargle(times,vals,2*np.pi*freqs)/norm
+    return np.vstack([freqs,psd]).T
+
 #make PSD with frequencies eqi-sampled on log-scale
 # returns PSD in lin-lin scale
 def MakeLogPsd(data,fs=1,outPoints=100):
