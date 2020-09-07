@@ -43,7 +43,7 @@ def RescaledRange(series, lowSegmentSize, highSegmentSize, /, *, wrap=True, poin
 ##
 ## Box Counting method
 ##
-def BoxCount1D(series, nSegments, /, *, wrap=True):
+def __BoxCount1D(series, nSegments, /, *, wrap=True):
     # NOTE: this implementation will work only for one dimensional series (e.g. Cantor set)
     _segmentSize = len(series) // nSegments
     _segs = series[:nSegments*_segmentSize].reshape(nSegments, _segmentSize)
@@ -51,3 +51,11 @@ def BoxCount1D(series, nSegments, /, *, wrap=True):
         # wrap might be needed to account for the edge points too
         _segs = np.vstack((_segs, series[-nSegments*_segmentSize:].reshape(nSegments, _segmentSize)))
     return np.sum(np.sum(_segs,axis=1)>0) // 2
+
+def BoxCount1D(series, lowN, highN, /, *, wrap=True, points=100):
+    _ln = np.log10(lowN)
+    _hn = np.log10(highN)
+    _nBoxes = np.unique(np.floor(np.logspace(_ln, _hn, num = points)).astype(int))
+    _nBoxes = _nBoxes[ _nBoxes > 1 ]
+    _counts = np.array([__BoxCount1D(series, nb, wrap=wrap) for nb in _nBoxes])
+    return np.polyfit(np.log10(_nBoxes), np.log10(_counts), 1)[0]
