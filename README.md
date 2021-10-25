@@ -16,6 +16,6 @@ of MF-DFA algorithm (which I wasn't able to find in any common Python library).
 
 This repository is meant as a storage for the most recent versions of the
 stats libraries for myself. If it is useful to anyone else, feel free to
-use the code (under [WTFPL](http://www.wtfpl.net/)). Though you might want to
+use the code. Though you might want to
 check out [my papers](http://kononovicius.lt) as you might also find something
 of interest there.
