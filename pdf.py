@@ -1,63 +1,80 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+from typing import Optional
 
-import math
 import numpy as np
 
-#make PDF with values eqi-sampled on lin-scale
-# returns PDF in lin-lin scale    
-def MakePdf(data,start=None,stop=None,outPoints=100):
-    if(start==None):
-        start=data.min()
-    if(stop==None):
-        stop=data.max()
-    bins=np.linspace(start,stop,num=outPoints)
-    histogram = np.histogram(data,bins=bins,normed=False)[0]
-    pos=np.where(histogram==0)
-    histogram=np.delete(histogram,pos)
-    bins=np.delete(bins,pos)
-    diffs=np.diff(bins)    
-    bins=0.5*(bins[1:] + bins[:-1])
-    pdf=np.array([bins,histogram/histogram.sum()/diffs]).T
+
+def __make_pdf(
+    data: list,
+    bin_boundaries: np.ndarray,
+) -> np.ndarray:
+    # We usually study distributions, which have single region of support.
+    # In other words, most distributions we study should have non-zero
+    # density in (start, stop) interval.
+    #
+    # For this reason we set bins manually, calculate histogram with
+    # density=False setting, delete empty bins, and finally calculate the
+    # density manually by dividing counts by the width of non-empty bins.
+    histogram = np.histogram(data, bins=bin_boundaries, density=False)[0]
+    empty_bin_pos = np.where(histogram == 0)
+    # For simplicity sake, the bin to the left of non-empty bin is extended.
+    histogram = np.delete(histogram, empty_bin_pos)
+    bin_boundaries = np.delete(bin_boundaries, empty_bin_pos)
+    bin_widths = np.diff(bin_boundaries)
+    density = histogram / np.sum(histogram) / bin_widths
+
+    # The reported bin location is centered between the boundaries
+    centroids = 0.5 * (bin_boundaries[1:] + bin_boundaries[:-1])
+
+    pdf = np.array([centroids, density]).T
     return pdf
 
-#make PDF with values eqi-sampled on log-scale
-# returns PDF in lin-lin scale
-def MakeLogPdf(data,start=None,stop=None,outPoints=100):
-    if(start==None):
-        start=math.log10(data.min())
+
+def make_pdf(
+    data: list,
+    start: Optional[float] = None,
+    stop: Optional[float] = None,
+    out_points: int = 100,
+) -> np.ndarray:
+    """Extract empirical PDF on lin-lin scale."""
+    if start is None:
+        start = np.min(data)
+    if stop is None:
+        stop = np.max(data)
+
+    bin_boundaries = np.linspace(start, stop, num=out_points)
+
+    return __make_pdf(data, bin_boundaries)
+
+
+def make_log_pdf(
+    data: list,
+    start: Optional[float] = None,
+    stop: Optional[float] = None,
+    out_points: int = 100,
+) -> np.ndarray:
+    """Extract empirical PDF on log-log scale."""
+    if start is None:
+        start = np.log10(np.min(data))
     else:
-        start=math.log10(start)
-    if(stop==None):
-        stop=math.log10(data.max())
+        start = np.log10(start)
+    if stop is None:
+        stop = np.log10(np.max(data))
     else:
-        stop=math.log10(stop)
-    bins=np.logspace(start,stop,num=outPoints)
-    histogram = np.histogram(data,bins=bins,normed=False)[0]
-    pos=np.where(histogram==0)
-    histogram=np.delete(histogram,pos)
-    bins=np.delete(bins,pos)
-    diffs=np.diff(bins)    
-    bins=0.5*(bins[1:] + bins[:-1])
-    pdf=np.array([bins,histogram/histogram.sum()/diffs]).T
-    return pdf
+        stop = np.log10(stop)
 
-#save PDF with values eqi-sampled on log-scale into a file
-def SaveLogPdf(file,data,start=None,stop=None,outPoints=100,
-               fmt="%.3f",returnData=False):
-    pdf=MakeLogPdf(data,start=start,stop=stop,outPoints=outPoints)
-    np.savetxt(file,np.log10(pdf),fmt=fmt)
-    if(returnData):
-        return pdf
+    bin_boundaries = np.logspace(start, stop, num=out_points)
 
-#convert PDF to CDF
-def PDF2CDF(pdf):
-    delta=np.diff(pdf[:,0])
-    tCdf1=np.cumsum(pdf[1:,1]*delta)
-    tCdf2=np.cumsum(pdf[:-1,1]*delta)
+    return __make_pdf(data, bin_boundaries)
 
-    cdf=0.5*tCdf1+0.5*tCdf2
-    cdf=cdf/cdf[-1]
-    cdf=np.concatenate(([0],cdf))
-    
-    return np.transpose([pdf[:,0],cdf])
+
+def estimate_cdf_from_pdf(pdf: np.ndarray) -> np.ndarray:
+    """Approximate empirical CDF from empirical PDF."""
+    bin_widths = np.diff(pdf[:, 0])
+    left_pdf_sum = np.cumsum(pdf[1:, 1] * bin_widths)
+    right_pdf_sum = np.cumsum(pdf[:-1, 1] * bin_widths)
+
+    cdf = 0.5 * left_pdf_sum + 0.5 * right_pdf_sum
+    cdf = cdf / cdf[-1]
+    cdf = np.concatenate(([0], cdf))
+
+    return np.transpose([pdf[:, 0], cdf])
