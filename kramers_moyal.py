@@ -1,9 +1,8 @@
 import numpy as np
-from numpy.typing import ArrayLike
-from scipy.special import factorial
+from scipy.special import factorial  # type: ignore
 
 
-def get_km(order: int, n_bins: int, series: ArrayLike, delta_t: float) -> np.ndarray:
+def get_km(order: int, n_bins: int, series: np.ndarray, delta_t: float) -> np.ndarray:
     """Calculate Kramers-Moyal term.
 
     Input:
