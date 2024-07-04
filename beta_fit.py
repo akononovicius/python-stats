@@ -5,7 +5,7 @@ import numpy as np
 
 def naive_beta_binomial_fit(
     data: list, n: Optional[int] = None
-) -> Tuple[float, float, float]:
+) -> Tuple[float, float, int]:
     """Estimate Beta-binomial distribution parameters from the mean and variance of the data.
 
     Input:
