@@ -54,15 +54,17 @@ def make_log_pdf(
 ) -> np.ndarray:
     """Extract empirical PDF on log-log scale."""
     if start is None:
-        start = np.log10(np.min(data))
+        _start = np.min(data)
     else:
-        start = np.log10(start)
+        _start = start
+    _start = np.log10(_start)
     if stop is None:
-        stop = np.log10(np.max(data))
+        _stop = np.max(data)
     else:
-        stop = np.log10(stop)
+        _stop = stop
+    _stop = np.log10(_stop)
 
-    bin_boundaries = np.logspace(start, stop, num=out_points)
+    bin_boundaries = np.logspace(_start, _stop, num=out_points)
 
     return __make_pdf(data, bin_boundaries)
 
