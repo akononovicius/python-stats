@@ -11,7 +11,7 @@ def make_pmf(
 ) -> np.ndarray:
     """Extract empirical probability mass function from data."""
     _data = np.array(data)
-    
+
     mask_flag = False
     if start is None:
         start = np.min(data)
@@ -21,9 +21,11 @@ def make_pmf(
         mask_flag = True
     if mask_flag:
         _data = _data[(start <= _data) & (_data <= stop)]
-    
+
     counter_dict = Counter(_data)
-    pmf = np.array([list(counter_dict.keys()), list(counter_dict.values())]).T
+    pmf = np.array(
+        [list(counter_dict.keys()), list(counter_dict.values())], dtype=float
+    ).T
     pmf = pmf[np.argsort(pmf[:, 0])]
     pmf[:, 1] = pmf[:, 1] / len(_data)
     return pmf
