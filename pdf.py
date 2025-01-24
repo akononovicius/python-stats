@@ -5,7 +5,7 @@ import numpy as np
 
 def __make_pdf(
     data: list,
-    bin_boundaries: np.ndarray,
+    bin_boundaries: list,
 ) -> np.ndarray:
     # We usually study distributions, which have single region of support.
     # In other words, most distributions we study should have non-zero
@@ -69,7 +69,7 @@ def make_log_pdf(
     return __make_pdf(data, bin_boundaries)
 
 
-def estimate_cdf_from_pdf(pdf: np.ndarray) -> np.ndarray:
+def estimate_cdf_from_pdf(pdf: list) -> np.ndarray:
     """Approximate empirical CDF from empirical PDF."""
     bin_widths = np.diff(pdf[:, 0])
     left_pdf_sum = np.cumsum(pdf[1:, 1] * bin_widths)
