@@ -2,7 +2,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 import scipy.signal as sp  # type: ignore
-from stats.averageOverLogLog import AverageOverLogLog
+
+from .average_over_loglog import average_over_loglog
 
 
 def make_equilog_psd(
@@ -133,4 +134,4 @@ def make_seg_log_psd(
             )
             psds = psds + (psd,)
 
-    return AverageOverLogLog(psds, outPoints=out_points)
+    return average_over_loglog(psds, out_points=out_points)
