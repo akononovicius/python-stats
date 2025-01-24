@@ -1,81 +1,136 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+from typing import Optional, Tuple
 
-import math
 import numpy as np
-import scipy.signal as sp
+import scipy.signal as sp  # type: ignore
 from stats.averageOverLogLog import AverageOverLogLog
 
-#make PSD with frequencies equi-sampled on log-scale
-#data does not need to be equi-sampled on temporal scale, just submit
-#two data arrays - times for observation time, vals for observation values
-#lfMin and lfMax define log-frequency bounds to be analyzed
-# returns PSD in lin-lin scale
-def MakeLogUPsd(times,vals,lfMin=None,lfMax=None,outPoints=100):
-    if lfMax is None:
-        lfMax = np.log10(0.5/np.mean(np.diff(times)))
-    if lfMin is None:
-        lfMin = -np.log10(times[-1]-times[0])
-    freqs = np.logspace(lfMin,lfMax,outPoints)
-    norm = len(times)/4
-    psd=sp.lombscargle(times,vals,2*np.pi*freqs)/norm
-    return np.vstack([freqs,psd]).T
 
-#make PSD with frequencies eqi-sampled on log-scale
-# returns PSD in lin-lin scale
-def MakeLogPsd(data,fs=1,outPoints=100):
-    psd=np.array(sp.periodogram(data,fs=fs)).T
-    ids=np.unique(
-            np.logspace(0,math.log10(psd.shape[0]),outPoints).astype(int)
-        )-1
-    ids=np.vstack((ids[1:-1],ids[2:])).T
-    return np.array([
-            [(psd[i[0],0]+psd[i[1],0])/2,np.mean(psd[i[0]:i[1],1])]
-        for i in ids])
+def make_equilog_psd(
+    times: list,
+    vals: list,
+    min_log_freq: Optional[float] = None,
+    max_log_freq: Optional[float] = None,
+    out_points: int = 100,
+) -> np.ndarray:
+    """Calculate equi-log-sampled PSD from non-equi-sampled data.
 
-#if time series is longer than a given segment length, then it is split
-# to parts of segment length. spliting is done both from the start and from
-# the end (so that firstmost and foremost values are included)
-#for each of the segment psd is obtained and later averaged over all segments
-def MakeSegLogPsd(data,fs=1,outPoints=100,segment=262144,
-                  biDirectionalSplit=True):
-    def _ConvertToPower2(num):
-        if(num > 0 and ((num & (num - 1)))):
-            num=int(2**(int(math.floor(math.log2(num))+1)))
+    Input:
+        times:
+            Times when the observations stored in `vals` were made.
+        vals:
+            Values observed at times stored in `times`.
+        min_log_freq:
+            Set the lower PSD frequency bound. Pass log10 of the
+            actual frequency.
+        max_log_freq:
+            Set the upper PSD frequency bound. Pass log10 of the
+            actual frequency.
+        out_points:
+            Desired number of points in the output PSD.
+
+    Output:
+        Two dimensional ndarray. Firt column - frequencies,
+        the second column - estimated PSD at those frequencies.
+    """
+    if max_log_freq is None:
+        max_log_freq = np.log10(0.5 / np.mean(np.diff(times)))
+    if min_log_freq is None:
+        min_log_freq = -np.log10(times[-1] - times[0])
+    freqs = np.logspace(min_log_freq, max_log_freq, out_points)
+    norm = len(times) / 4
+    psd = sp.lombscargle(times, vals, 2 * np.pi * freqs) / norm
+    return np.vstack([freqs, psd]).T
+
+
+def make_log_psd(series: list, fs: float = 1.0, out_points: int = 100) -> np.ndarray:
+    """Estimate log-sampled PSD from equi-sampled data.
+
+    Input:
+        series:
+            Equi-sampled data.
+        fs:
+            Sampling frequency of the data.
+        out_points:
+            Desired number of points in the output PSD.
+            Lower resolution of the PSD is obtained by
+            averaging over binned FFT output.
+
+    Output:
+        Two dimensional ndarray. Firt column - frequencies,
+        the second column - estimated PSD at those frequencies.
+    """
+    psd = np.array(sp.periodogram(series, fs=fs)).T
+    ids = np.unique(np.logspace(0, np.log10(psd.shape[0]), out_points).astype(int)) - 1
+    ids = np.vstack((ids[1:-1], ids[2:])).T
+    return np.array(
+        [[(psd[i[0], 0] + psd[i[1], 0]) / 2, np.mean(psd[i[0] : i[1], 1])] for i in ids]
+    )
+
+
+def make_seg_log_psd(
+    series: list,
+    fs: float = 1.0,
+    out_points: int = 100,
+    segment_len: int = 262144,
+    bi_directional_split: bool = True,
+) -> np.ndarray:
+    """Estimate log-sampled PSD from segmented equi-sampled data.
+
+    Input:
+        series:
+            Equi-sampled data.
+        fs:
+            Sampling frequency of the data.
+        out_points:
+            Desired number of points in the output PSD.
+            Lower resolution of the PSD is obtained by
+            averaging over binned FFT output.
+        segment_len:
+            Length of a segment. Data will be split into
+            multiple segments of this length. PSD will
+            be estimated for each segment, and then it
+            will be averaged over the segments.
+        bi_directional_split:
+            Whether the splits should done both from the
+            start and from the end. If segmentation of the
+            data is not perfect, it might be wise to obtain
+            segments starting both from the start and from
+            the end of the series. Value of this parameter
+            will be ignored, if the split is perfect.
+
+    Output:
+        Two dimensional ndarray. Firt column - frequencies,
+        the second column - estimated PSD at those frequencies.
+    """
+
+    def _to_pow_2(num: int) -> int:
+        # (num & (num - 1)) != 0 check if num is already power of 2
+        if num > 0 and (num & (num - 1)) != 0:
+            num = 2 ** np.ceil(np.log2(num))
         return num
-    segment=_ConvertToPower2(segment)
-    if(len(data)<segment):
-        segment=int(_ConvertToPower2(len(data))/2)
-    if(segment<4096):
-        return MakeLogPsd(data,fs=fs,outPoints=outPoints)
-    psds=()
-    im=int(math.floor(len(data)/segment))
-    #do spliting from the start
-    for i in range(im):
-        start=i*segment
-        psd=MakeLogPsd(data[start:start+segment],fs=fs,outPoints=10*outPoints)
-        psds=psds+(psd,)
-    l=len(data)
-    if(biDirectionalSplit):
-        #do spliting from the end
-        for i in range(im):
-            start=l-i*segment
-            psd=MakeLogPsd(data[start-segment:start],fs=fs,
-                           outPoints=10*outPoints)
-            psds=psds+(psd,)
-    del start, psd, im, l
-    return AverageOverLogLog(psds,outPoints=outPoints)
 
-#make PSD with values eqi-sampled on log-scale into a file
-def SaveLogPsd(file,data,fs=1,outPoints=100,fmt="%.3f",returnData=False):
-    psd=MakeLogPsd(data,fs=fs,outPoints=outPoints)
-    np.savetxt(file,np.log10(psd),fmt=fmt)
-    if(returnData):
-        return psd
-        
-def SaveSegLogPsd(file,data,fs=1,outPoints=100,segment=262144,
-                  fmt="%.3f",returnData=False):
-    psd=MakeSegLogPsd(data,fs=fs,outPoints=outPoints,segment=segment)
-    np.savetxt(file,np.log10(psd),fmt=fmt)
-    if(returnData):
-        return psd
+    series_len = len(series)
+    segment_len = _to_pow_2(segment_len)
+    if series_len < segment_len:
+        segment_len = int(_to_pow_2(series_len) / 2)
+    n_splits = int(np.floor(series_len / segment_len))
+
+    psds: Tuple = ()
+    # do spliting from the start of the series
+    for i in range(n_splits):
+        start = i * segment_len
+        psd = make_log_psd(
+            series[start : start + segment_len], fs=fs, out_points=10 * out_points
+        )
+        psds = psds + (psd,)
+
+    if bi_directional_split and (n_splits * segment_len < series_len):
+        # do spliting from the end of the series
+        for i in range(n_splits):
+            start = series_len - i * segment_len
+            psd = make_log_psd(
+                series[start - segment_len : start], fs=fs, out_points=10 * out_points
+            )
+            psds = psds + (psd,)
+
+    return AverageOverLogLog(psds, outPoints=out_points)
